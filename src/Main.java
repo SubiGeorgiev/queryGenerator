@@ -1,7 +1,6 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -15,13 +14,9 @@ import java.util.List;
 
 public class Main {
 
-  public static final List<String> inputList = new ArrayList<>() {{
-    add("-h");
-    add("--help");
-  }};
   public static String PROTOTYPES = "/prototypes/";
   public static String RAW_DATA = "/rawData/";
-  public static String SQL_SCRIPTS = "/sqlScripts/";
+  public static String DESTINATION_FOLDER = "/sqlScripts/";
   public static String SCRIPT_FULL_VERSION = "script_full_version.txt";
   private static List<String> prototypes = new ArrayList<>();
   private static List<String> rawData = new ArrayList<>();
@@ -59,7 +54,8 @@ public class Main {
             new FileReader(RAW_DATA + rawFile))) {
 
           //Make sure there are no previous data in the output file
-          clearFile(scriptFile);
+          deleteFile(scriptFile);
+          createFile(scriptFile);
 
           String line;
           while ((line = reader.readLine()) != null) {
@@ -79,12 +75,12 @@ public class Main {
             writeQuery(input, scriptFile, level);
 
           }
-
-          // Merge all scripts into a single file
-          mergeFiles();
-
         }
       }
+
+      // Merge all scripts into a single file
+      mergeFiles();
+
     } catch (Exception e) {
       System.out.printf(e.getMessage());
     }
@@ -100,9 +96,11 @@ public class Main {
 
     HashMap<String, String> options = new HashMap<>();
     options.put("-h", "help");
-    options.put("-p", "set prototype query source folder, default - " + PROTOTYPES.replace("/",""));
-    options.put("-r", "set raw data source folder, default - " + RAW_DATA.replace("/",""));
-    options.put("-d", "set scripts destination folder, default - " + SQL_SCRIPTS.replace("/",""));
+    options.put("-p",
+        "set prototype query source folder, default - " + PROTOTYPES.replace("/", ""));
+    options.put("-r", "set raw data source folder, default - " + RAW_DATA.replace("/", ""));
+    options.put("-d",
+        "set scripts destination folder, default - " + DESTINATION_FOLDER.replace("/", ""));
     options.put("-f", "set output file name, default - " + SCRIPT_FULL_VERSION);
 
     if (consoleInput.contains("-h")) {
@@ -110,19 +108,19 @@ public class Main {
     }
 
     if (consoleInput.contains("-p")) {
-      PROTOTYPES = "/" + consoleInput.get(consoleInput.indexOf("-p")+1) + "/";
+      PROTOTYPES = "/" + consoleInput.get(consoleInput.indexOf("-p") + 1) + "/";
     }
 
     if (consoleInput.contains("-r")) {
-      RAW_DATA = "/" + consoleInput.get(consoleInput.indexOf("-r")+1) + "/";
+      RAW_DATA = "/" + consoleInput.get(consoleInput.indexOf("-r") + 1) + "/";
     }
 
     if (consoleInput.contains("-d")) {
-      SQL_SCRIPTS = "/" + consoleInput.get(consoleInput.indexOf("-d")+1) + "/";
+      DESTINATION_FOLDER = "/" + consoleInput.get(consoleInput.indexOf("-d") + 1) + "/";
     }
 
     if (consoleInput.contains("-f")) {
-      SCRIPT_FULL_VERSION = (String) consoleInput.get(consoleInput.indexOf("-f")+1);
+      SCRIPT_FULL_VERSION = (String) consoleInput.get(consoleInput.indexOf("-f") + 1);
     }
 
   }
@@ -131,8 +129,13 @@ public class Main {
     Path currentRalativePath = Paths.get("");
 
     RAW_DATA = currentRalativePath.toAbsolutePath().toString() + RAW_DATA;
-    SQL_SCRIPTS = currentRalativePath.toAbsolutePath().toString() + SQL_SCRIPTS;
+    DESTINATION_FOLDER = currentRalativePath.toAbsolutePath().toString() + DESTINATION_FOLDER;
     PROTOTYPES = currentRalativePath.toAbsolutePath().toString() + PROTOTYPES;
+
+    Path path = Paths.get(DESTINATION_FOLDER);
+    File file = path.toFile();
+    file.mkdir();
+
   }
 
   private static void getPrototypes() throws IOException {
@@ -187,16 +190,16 @@ public class Main {
     //Acquire number of placeholder in the prototype
     int placeHolders = countPlaceHolders(level);
     if (placeHolders > input.size()) {
-      throw new IllegalArgumentException("Place holders are more than the input values");
+      throw new IllegalArgumentException("Place holders are more than the input values. Also check namings ('10_name' comes before '9_name')");
     } else if (placeHolders < input.size()) {
-      throw new IllegalArgumentException("Place holders are less than the input values");
+      throw new IllegalArgumentException("Place holders are less than the input values. Also check namings ('10_name' comes before '9_name')");
     }
 
     String[] inputArray = input.toArray(new String[0]);
     String query = String.format(prototypes.get(level), inputArray) + "\n\n\n";
 
     try (BufferedWriter writer = new BufferedWriter(
-        new FileWriter(SQL_SCRIPTS + scriptFile, true))) {
+        new FileWriter(DESTINATION_FOLDER + scriptFile, true))) {
       writer.write(query);
     }
   }
@@ -216,25 +219,31 @@ public class Main {
     return count;
   }
 
-  private static void clearFile(String scriptFile) throws IOException {
-    try (FileWriter writer = new FileWriter(SQL_SCRIPTS + scriptFile)) {
-      writer.write("");
-    } catch (FileNotFoundException e) {
+  private static void deleteFile(String scriptFile) throws IOException {
 
-    }
+    Path path = Paths.get(DESTINATION_FOLDER + scriptFile);
+    File file = path.toFile();
+
+    file.delete();
+  }
+  private static void createFile(String scriptFile) throws IOException{
+    Path path = Paths.get(DESTINATION_FOLDER + scriptFile);
+    File file = path.toFile();
+
+    file.createNewFile();
   }
 
   private static void mergeFiles() throws IOException {
 
-    clearFile(SCRIPT_FULL_VERSION);
+    deleteFile(SCRIPT_FULL_VERSION);
 
-    File directoryPath = new File(SQL_SCRIPTS);
+    File directoryPath = new File(DESTINATION_FOLDER);
 
     File fileList[] = directoryPath.listFiles();
 
     for (File file : fileList) {
       try (BufferedWriter writer = new BufferedWriter(
-          new FileWriter(SQL_SCRIPTS + SCRIPT_FULL_VERSION, true))) {
+          new FileWriter(DESTINATION_FOLDER + SCRIPT_FULL_VERSION, true))) {
 
         String temp = Files.readString(Paths.get(file.getPath()));
         writer.write(temp);
